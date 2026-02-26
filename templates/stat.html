@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Polygon Statistics</title>
+    <style>
+        body { font-family: Arial; background:#f4f6f9; padding:30px; }
+        .card {
+            background:white;
+            padding:20px;
+            border-radius:10px;
+            box-shadow:0 4px 10px rgba(0,0,0,0.1);
+            max-width:600px;
+            margin:auto;
+        }
+        h2 { text-align:center; }
+        .stat { margin:10px 0; font-size:16px; }
+        .highlight { font-weight:bold; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>📊 Polygon Analysis Statistics</h2>
+
+    <div class="stat">Area: <span class="highlight">{{ stats.area_km2 }} km²</span></div>
+    <div class="stat">Road Density: <span class="highlight">{{ stats.road_density }}</span></div>
+    <div class="stat">Population Density: <span class="highlight">{{ stats.pop_density }}</span></div>
+    <div class="stat">Green Cover Index: <span class="highlight">{{ stats.green_cover }}</span></div>
+    <div class="stat">Distance to Water: <span class="highlight">{{ stats.distance_water }} km</span></div>
+    <div class="stat">Elevation: <span class="highlight">{{ stats.elevation }}</span></div>
+    <div class="stat">Flood Risk: <span class="highlight">{{ stats.flood_risk }}</span></div>
+
+    <hr>
+
+    <div class="stat">Sustainability Score: <span class="highlight">{{ stats.score }}/100</span></div>
+    <div class="stat">Decision: <span class="highlight">{{ stats.decision }}</span></div>
+    <div class="stat">Model Confidence: <span class="highlight">{{ stats.confidence }}%</span></div>
+
+    <br>
+    <div style="text-align:center;">
+        <a href="/">⬅ Back to Map</a>
+    </div>
+</div>
+
+</body>
+</html>

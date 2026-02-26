@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoExpand | Urban Intelligence</title>
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --sidebar-width: 420px;
+            --bg-dark: #121212;
+            --bg-panel: rgba(30, 30, 30, 0.95);
+            --accent-color: #00e676; 
+            --accent-warn: #ff9100;
+            --accent-danger: #ff5252;
+            --text-main: #ffffff;
+            --text-muted: #b0b3b8;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: 1fr var(--sidebar-width);
+            height: 100vh;
+            width: 100vw;
+        }
+
+        
+        #map-section {
+            position: relative;
+            height: 100%;
+            width: 100%;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+            z-index: 1;
+        }
+
+        .map-overlay-title {
+            position: absolute;
+            top: 20px;
+            left: 60px; 
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            padding: 10px 25px;
+            border-radius: 50px;
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        
+        #sidebar {
+            background-color: var(--bg-panel);
+            border-left: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            padding: 25px;
+            gap: 20px;
+            overflow-y: auto;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+        }
+
+        .sidebar-header h4 {
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin: 0;
+        }
+
+        
+        .stat-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .score-display {
+            text-align: center;
+            padding: 10px 0;
+        }
+        
+        .score-value {
+            font-size: 3.5rem;
+            font-weight: 800;
+            line-height: 1;
+            background: -webkit-linear-gradient(45deg, var(--accent-color), #2196f3);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .decision-badge {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 5px 15px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        
+        .map-labels {
+    filter: brightness(4) contrast(1.5) grayscale(100%);
+        }
+
+
+        .leaflet-pane.leaflet-label-pane {
+    z-index: 650; 
+    pointer-events: none; 
+        }
+
+        
+        .chart-container {
+            position: relative;
+            height: 220px;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        
+        .history-list {
+            flex-grow: 1;
+            overflow-y: auto;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 15px;
+        }
+
+        .zone-item {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.05);
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .zone-item:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateX(5px);
+        }
+
+        .zone-item.active {
+            background: rgba(0, 230, 118, 0.1);
+            border-color: var(--accent-color);
+        }
+
+        
+        #loading-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 2000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        
+        
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #121212; }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+
+    </style>
+</head>
+<body>
+
+<div id="loading-overlay">
+    <div class="spinner-border text-success" style="width: 3rem; height: 3rem;" role="status"></div>
+    <div class="mt-3 text-light">Analyzing Sustainability Metrics</div>
+</div>
+
+<div class="dashboard-container">
+    
+    <div id="map-section">
+        <div class="map-overlay-title">
+            <i class="fa-solid fa-leaf text-success"></i>
+            <div>
+                <h5 class="m-0 fw-bold">EcoExpand</h5>
+                <small class="text-muted" style="color: #ffffff;">Sustainable Site Predictor</small>
+            </div>
+        </div>
+        <div id="map"></div>
+    </div>
+
+    <div id="sidebar">
+        
+        <div class="sidebar-header d-flex justify-content-between align-items-center">
+            <h4>Zone Analysis</h4>
+            <button class="btn btn-sm btn-outline-light" onclick="resetView()">
+                <i class="fa-solid fa-arrows-rotate"></i>
+            </button>
+        </div>
+
+        <div class="stat-card">
+            <h6 class="text-uppercase text-muted" style="font-size: 0.75rem; letter-spacing: 1.2px;">Sustainability Index</h6>
+            <div class="score-display">
+                <div class="score-value" id="disp-score">--</div>
+                <div class="decision-badge" id="disp-decision">Select a Zone</div>
+            </div>
+            <div class="d-flex justify-content-between mt-3 text-muted" style="font-size: 0.85rem;">
+                <span><i class="fa-solid fa-ruler-combined"></i> <span id="disp-area">0</span> km²</span>
+                <span>ID: <span id="disp-id">#</span></span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <h6 class="mb-2">Metric Balance</h6>
+            <div class="chart-container">
+                <canvas id="radarChart"></canvas>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <h6 class="mb-2">Feature Deep Dive</h6>
+            <div class="chart-container">
+                <canvas id="barChart"></canvas>
+            </div>
+        </div>
+
+        <div class="history-list">
+            <h6 class="text-muted mb-3">Analyzed Zones</h6>
+            <div id="zones-container">
+                <div class="text-center text-muted mt-4">
+                    <i class="fa-solid fa-draw-polygon fa-2x mb-2"></i>
+                    <p>Draw a rectangle on the map<br>to begin analysis.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    
+    var map = L.map('map', { zoomControl: false }).setView([12.92, 80.20], 13);
+    
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 20
+    }).addTo(map);
+
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    var drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
+
+    var drawControl = new L.Control.Draw({
+        edit: { featureGroup: drawnItems },
+        draw: {
+            polygon: false,
+            circle: false,
+            polyline: false,
+            marker: false,
+            circlemarker: false,
+            rectangle: {
+                shapeOptions: {
+                    color: '#00e676',
+                    weight: 2
+                }
+            }
+        }
+    });
+    map.addControl(drawControl);
+
+   
+    let zones = [];
+    let currentChartRadar = null;
+    let currentChartBar = null;
+    let zoneCounter = 1;
+
+    function initCharts() {
+        
+        const ctxRadar = document.getElementById('radarChart').getContext('2d');
+        currentChartRadar = new Chart(ctxRadar, {
+            type: 'radar',
+            data: {
+                labels: ['Green', 'Roads', 'Population', 'Water Access', 'Safety'],
+                datasets: [{
+                    label: 'Zone Profile',
+                    data: [0,0,0,0,0],
+                    backgroundColor: 'rgba(0, 230, 118, 0.2)',
+                    borderColor: '#00e676',
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#00e676'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    r: {
+                        angleLines: { color: 'rgba(255,255,255,0.1)' },
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        pointLabels: { color: '#ccc', font: {size: 11} },
+                        suggestedMin: 0,
+                        suggestedMax: 100,
+                        ticks: { display: false } 
+                    }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        
+        const ctxBar = document.getElementById('barChart').getContext('2d');
+        currentChartBar = new Chart(ctxBar, {
+            type: 'bar',
+            data: {
+                labels: ['Green Cover', 'Road Den.', 'Pop Den.', 'Flood Risk'],
+                datasets: [{
+                    label: 'Metric Value',
+                    data: [0, 0, 0, 0],
+                    backgroundColor: ['#66bb6a', '#42a5f5', '#ffa726', '#ef5350'],
+                    borderRadius: 4,
+                    barThickness: 20
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { 
+                        beginAtZero: true, 
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#888' } 
+                    },
+                    x: { 
+                        grid: { display: false },
+                        ticks: { color: '#ccc', font: {size: 10} }
+                    }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    
+    map.on(L.Draw.Event.CREATED, function(event) {
+        var layer = event.layer;
+        drawnItems.addLayer(layer);
+        
+        
+        document.getElementById('loading-overlay').style.display = 'flex';
+
+        var bounds = layer.getBounds();
+        var payload = { 
+            north: bounds.getNorth(), 
+            south: bounds.getSouth(), 
+            east: bounds.getEast(), 
+            west: bounds.getWest() 
+        };
+
+        axios.post('/predict_zone', payload)
+            .then(res => {
+                const data = res.data;
+                const newZone = {
+                    id: zoneCounter++,
+                    layer: layer,
+                    data: data
+                };
+                
+                
+                zones.push(newZone);
+
+                
+                layer.bindPopup(`
+                    <div style="text-align:center;">
+                        <strong>ID: ${newZone.id}</strong><br>
+                        Score: ${data.score}<br>
+                        ${data.decision}
+                    </div>
+                `);
+
+                // Style based on score
+                let color = data.score >= 70 ? '#00e676' : (data.score >= 40 ? '#ff9100' : '#ff5252');
+                layer.setStyle({ color: color, fillOpacity: 0.2 });
+                
+                // Click handler for the map layer
+                layer.on('click', () => selectZone(newZone.id));
+
+                updateList();
+                selectZone(newZone.id);
+            })
+            .catch(err => {
+                alert("Analysis Error: " + err.response?.data?.error || err.message);
+                layer.remove(); // Remove failed layer
+            })
+            .finally(() => {
+                document.getElementById('loading-overlay').style.display = 'none';
+            });
+    });
+
+    // Update the Sidebar List
+    function updateList() {
+        const container = document.getElementById('zones-container');
+        container.innerHTML = '';
+        
+        // Reverse to show newest first
+        [...zones].reverse().forEach(z => {
+            const scoreColor = z.data.score >= 70 ? '#00e676' : (z.data.score >= 40 ? '#ff9100' : '#ff5252');
+            
+            const div = document.createElement('div');
+            div.className = 'zone-item';
+            div.id = `zone-item-${z.id}`;
+            div.innerHTML = `
+                <div>
+                    <span style="font-weight:bold; color: #fff;">Zone #${z.id}</span>
+                    <br>
+                    <span style="font-size: 0.8rem; color: #888;">${z.data.area_km2} km²</span>
+                </div>
+                <div style="text-align:right;">
+                    <span style="font-size: 1.2rem; font-weight:bold; color:${scoreColor}">${z.data.score}</span>
+                </div>
+            `;
+            div.onclick = () => selectZone(z.id);
+            container.appendChild(div);
+        });
+    }
+
+    // Select and visualize a zone
+    function selectZone(id) {
+        const zone = zones.find(z => z.id === id);
+        if(!zone) return;
+
+        const d = zone.data;
+
+        // 1. Update Score Card
+        document.getElementById('disp-score').innerText = d.score;
+        document.getElementById('disp-decision').innerText = d.decision;
+        document.getElementById('disp-id').innerText = zone.id;
+        document.getElementById('disp-area').innerText = d.area_km2;
+
+        // Colorize decision badge
+        const badge = document.getElementById('disp-decision');
+        if(d.score >= 70) { badge.style.color = '#00e676'; badge.style.border = '1px solid #00e676'; }
+        else if(d.score >= 40) { badge.style.color = '#ff9100'; badge.style.border = '1px solid #ff9100'; }
+        else { badge.style.color = '#ff5252'; badge.style.border = '1px solid #ff5252'; }
+
+        // 2. Prepare Chart Data (Normalization)
+        // Note: Your app.py returns raw densities. We normalize them roughly for the 0-100 chart visual.
+        const normRoad = Math.min(d.road_density * 10, 100); 
+        const normPop = Math.min(d.pop_density * 5, 100);    
+        const normFlood = d.score; // Inverse logic handled in chart or use (100-flood_risk*100) if raw 0-1
+        // Assuming flood_risk in app.py logic was normalized in score calculation, we use raw derived stats.
+
+        // Update Radar
+        // 'Safety' here is inverse of Flood Risk for visual consistency (Outward = Good)
+        // We approximate these based on your score logic in app.py
+        currentChartRadar.data.datasets[0].data = [
+            d.green_cover,       // Green
+            normRoad,            // Roads
+            normPop,             // Pop
+            Math.max(0, 100 - (d.distance_water * 10)), // Closer to water = higher score visual
+            d.score              // Overall/Safety proxy
+        ];
+        currentChartRadar.update();
+
+        // Update Bar
+        // We use derived values similar to your python script logic
+        currentChartBar.data.datasets[0].data = [
+            d.green_cover, 
+            normRoad, 
+            normPop, 
+            (100 - d.score) // Rough proxy for risk visualization
+        ];
+        currentChartBar.update();
+
+        // 3. Highlight List Item
+        document.querySelectorAll('.zone-item').forEach(el => el.classList.remove('active'));
+        const activeItem = document.getElementById(`zone-item-${id}`);
+        if(activeItem) activeItem.classList.add('active');
+
+        // 4. Highlight Map Layer
+        drawnItems.eachLayer(l => {
+            if(l === zone.layer) {
+                l.setStyle({ weight: 4, fillOpacity: 0.5 });
+                l.openPopup();
+            } else {
+                l.setStyle({ weight: 2, fillOpacity: 0.2 });
+            }
+        });
+    }
+
+    function resetView() {
+        zones = [];
+        drawnItems.clearLayers();
+        updateList();
+        document.getElementById('disp-score').innerText = '--';
+    }
+
+    // Initialize
+    initCharts();
+
+</script>
+</body>
+</html>

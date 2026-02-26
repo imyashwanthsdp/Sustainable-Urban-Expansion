@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Report</title>
+</head>
+<body>
+<h2>Zone Sustainability Report</h2>
+
+<table border="1">
+<tr>
+<th>Zone ID</th>
+<th>Population Density</th>
+<th>Green Cover</th>
+<th>Flood Risk</th>
+<th>Label</th>
+</tr>
+
+{% for zone in zones %}
+<tr>
+<td>{{ zone.zone_id }}</td>
+<td>{{ zone.pop_density }}</td>
+<td>{{ zone.green_cover }}</td>
+<td>{{ zone.flood_risk }}</td>
+<td>{{ zone.label }}</td>
+</tr>
+{% endfor %}
+
+</table>
+</body>
+</html>

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AquaGuard | Flood Risk Intelligence</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --accent-blue: #007aff;
+            --accent-cyan: #00d4ff;
+            --bg-dark: #0f172a;
+            --glass-white: rgba(255, 255, 255, 0.05);
+            --border-glass: rgba(255, 255, 255, 0.1);
+            --text-muted: #94a3b8;
+            --risk-low: #10b981;
+            --risk-med: #f59e0b;
+            --risk-high: #ef4444;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: var(--bg-dark); color: #f8fafc; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+        header {
+            height: 70px; padding: 0 40px; display: flex; align-items: center; justify-content: space-between;
+            background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-glass); z-index: 1000;
+        }
+        .logo { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+        .logo span { background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        #container { display: flex; flex: 1; padding: 15px; gap: 15px; height: calc(100vh - 70px); }
+        #map { flex: 3; border-radius: 16px; border: 1px solid var(--border-glass); background: #1e293b; }
+
+        #panel {
+            flex: 1; min-width: 380px; background: var(--glass-white); backdrop-filter: blur(20px);
+            border: 1px solid var(--border-glass); border-radius: 16px; padding: 25px; display: flex; flex-direction: column;
+        }
+
+        h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); margin-bottom: 20px; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 25px; }
+        .stat-card { background: rgba(0, 0, 0, 0.2); padding: 15px; border-radius: 12px; border: 1px solid var(--border-glass); }
+        .stat-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+        .stat-value { font-size: 16px; font-weight: 600; }
+
+        .risk-container { margin-top: 10px; text-align: center; padding: 30px 20px; border-radius: 16px; background: rgba(255, 255, 255, 0.03); border: 1px inset var(--border-glass); margin-bottom: 25px; }
+        .risk-progress-bg { height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; margin: 15px 0; overflow: hidden; }
+        #risk-bar { height: 100%; width: 0%; background: var(--accent-blue); transition: width 1s ease-out; }
+        .risk-value { font-size: 42px; font-weight: 800; }
+
+        .btn-analyze { width: 100%; padding: 18px; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; color: white; background: var(--accent-blue); cursor: pointer; transition: all 0.3s; margin-top: auto; }
+        .btn-analyze:hover:not(:disabled) { background: #006ae6; transform: translateY(-2px); }
+        .btn-analyze:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .text-low { color: var(--risk-low); }
+        .text-med { color: var(--risk-med); }
+        .text-high { color: var(--risk-high); }
+        #loading-overlay { display: none; font-size: 13px; color: var(--accent-cyan); text-align: center; margin-bottom: 10px; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">🌊 <span>FLOOD</span>RISK</div>
+    <div style="font-size: 13px; color: var(--text-muted);">Satellite-Derived Risk Analysis</div>
+</header>
+
+<div id="container">
+    <div id="map"></div>
+    <div id="panel">
+        <div>
+            <h3>📊 Hydrological Metrics</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Avg Elevation</div>
+                    <div class="stat-value"><span id="elevation">--</span> <small>m</small></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Terrain Slope</div>
+                    <div class="stat-value"><span id="slope">--</span> <small>σ</small></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Annual Rain</div>
+                    <div class="stat-value"><span id="rainfall">--</span> <small>mm</small></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Peak Intensity</div>
+                    <div class="stat-value"><span id="peak-rain">--</span> <small>mm/m</small></div>
+                </div>
+            </div>
+
+            <div class="risk-container">
+                <div class="stat-label">Total Vulnerability Score</div>
+                <div id="risk" class="risk-value">--</div>
+                <div class="risk-progress-bg"><div id="risk-bar"></div></div>
+                <div id="risk-label" style="font-size: 12px; font-weight: 600; text-transform: uppercase;">Awaiting Area Selection</div>
+            </div>
+        </div>
+        <div id="loading-overlay">Analyzing geographical data points...</div>
+        <button id="analyze-btn" class="btn-analyze" onclick="runAnalysis()" disabled>Draw Area to Start</button>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
+
+<script>
+    // 1. Initialize Map
+    const map = L.map('map').setView([20, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    const drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
+
+    const drawControl = new L.Control.Draw({
+        draw: { polygon: true, polyline: false, rectangle: true, circle: false, marker: false, circlemarker: false },
+        edit: { featureGroup: drawnItems }
+    });
+    map.addControl(drawControl);
+
+    let selectedLayer = null;
+
+    // 2. Capture Drawing
+    map.on(L.Draw.Event.CREATED, function (event) {
+        drawnItems.clearLayers();
+        selectedLayer = event.layer;
+        drawnItems.addLayer(selectedLayer);
+        document.getElementById('analyze-btn').disabled = false;
+        document.getElementById('analyze-btn').innerText = "Run Analysis";
+    });
+
+    // 3. Analysis Function
+    async function runAnalysis() {
+        if (!selectedLayer) return;
+
+        const loading = document.getElementById('loading-overlay');
+        const btn = document.getElementById('analyze-btn');
+        
+        loading.style.display = 'block';
+        btn.disabled = true;
+
+        const geojson = selectedLayer.toGeoJSON();
+
+        try {
+            const response = await fetch('/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ geometry: geojson.geometry })
+            });
+            const data = await response.json();
+            updateUI(data);
+        } catch (error) {
+            console.error("Analysis Failed:", error);
+            alert("Error fetching data. Check your Flask console.");
+        } finally {
+            loading.style.display = 'none';
+            btn.disabled = false;
+        }
+    }
+
+    // 4. Update Dashboard
+    function updateUI(data) {
+        // Map data from your new Flask structure
+        document.getElementById('elevation').innerText = data.metrics.avg_elevation_m;
+        document.getElementById('slope').innerText = data.metrics.elevation_std;
+        document.getElementById('rainfall').innerText = data.metrics.annual_rainfall_mm;
+        document.getElementById('peak-rain').innerText = data.metrics.peak_monthly_mm;
+        
+        const score = data.flood_risk_percent;
+        const riskEl = document.getElementById('risk');
+        const barEl = document.getElementById('risk-bar');
+        const labelEl = document.getElementById('risk-label');
+
+        riskEl.innerText = score + '%';
+        barEl.style.width = score + '%';
+
+        if (score < 30) {
+            riskEl.className = 'risk-value text-low';
+            barEl.style.background = 'var(--risk-low)';
+            labelEl.innerText = 'Low Risk Environment';
+            labelEl.className = 'text-low';
+        } else if (score < 70) {
+            riskEl.className = 'risk-value text-med';
+            barEl.style.background = 'var(--risk-med)';
+            labelEl.innerText = 'Moderate Caution Advised';
+            labelEl.className = 'text-med';
+        } else {
+            riskEl.className = 'risk-value text-high';
+            barEl.style.background = 'var(--risk-high)';
+            labelEl.innerText = 'Critical Flood Danger';
+            labelEl.className = 'text-high';
+        }
+    }
+</script>
+</body>
+</html>
