@@ -10,24 +10,20 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 import joblib
 
-# ----------------------------------------
-# ⚙ Parameters — change if needed
-# ----------------------------------------
 
-CITY_CENTER = (13.0827, 80.2707)  # e.g., Chennai
-GRID_SIZE_KM = 1  # grid cell size in kilometers
-NUM_ROWS = 10  # number of grid rows
-NUM_COLS = 10  # number of grid columns
 
-# ----------------------------------------
-# 🛠 Helper Functions
-# ----------------------------------------
+CITY_CENTER = (13.0827, 80.2707)  
+GRID_SIZE_KM = 1  
+NUM_ROWS = 10  
+NUM_COLS = 10  
+
+
 
 def make_grid(center, grid_size_km, rows, cols):
     """Create a simple grid of rectangles around a central lat/lng."""
     lat, lng = center
     grid_cells = []
-    step = grid_size_km / 110.0  # rough degree per km
+    step = grid_size_km / 110.0  
 
     for i in range(rows):
         for j in range(cols):
@@ -41,11 +37,11 @@ def make_grid(center, grid_size_km, rows, cols):
 
 def extract_osm_features(polygon):
 
-    # area in km2
+    
     gdf = gpd.GeoDataFrame(index=[0], crs="EPSG:4326", geometry=[polygon])
     area_km2 = gdf.to_crs(epsg=3857).area.iloc[0] / 10**6
 
-    # road density
+    
     try:
         G = ox.graph_from_polygon(polygon, network_type='drive')
         edges = ox.graph_to_gdfs(G, nodes=False)
@@ -54,7 +50,7 @@ def extract_osm_features(polygon):
     except Exception:
         road_density = 0
 
-    # building count proxy
+    
     try:
         build = ox.features_from_polygon(polygon, tags={"building": True})
         building_count = len(build)
@@ -62,14 +58,14 @@ def extract_osm_features(polygon):
     except:
         pop_density = 0
 
-    # green parks
+    
     try:
         parks = ox.features_from_polygon(polygon, tags={"leisure": "park"})
         green_cover = len(parks)
     except:
         green_cover = 0
 
-    # distance to water
+    
     try:
         water = ox.features_from_polygon(polygon, tags={"natural": "water"})
         if len(water) > 0:
@@ -84,7 +80,7 @@ def extract_osm_features(polygon):
     except:
         distance_water = 5
 
-    # elevation approximation
+    
     elevation = 30 + (polygon.bounds[3] - polygon.bounds[1]) * 1000
     flood_risk = max(0, min(1, 1 - elevation/100))
 
@@ -113,9 +109,7 @@ def label_zone(row):
     else:
         return 0  # not suitable
 
-# ----------------------------------------
-# 🟦 Generate Training Data
-# ----------------------------------------
+
 
 print("Generating grid …")
 grid = make_grid(CITY_CENTER, GRID_SIZE_KM, NUM_ROWS, NUM_COLS)
@@ -135,9 +129,7 @@ df["label"] = df.apply(label_zone, axis=1)
 print("Dataset created with shape:", df.shape)
 df.to_csv("data/urban_dataset_real.csv", index=False)
 
-# ----------------------------------------
-# 🧠 Train Random Forest
-# ----------------------------------------
+
 
 features = [
     "pop_density", "road_density", "green_cover",
@@ -158,9 +150,7 @@ acc = accuracy_score(y_test, pred)
 
 print("Test Accuracy:", acc)
 
-# ----------------------------------------
-# 💾 Save Model
-# ----------------------------------------
+
 
 if not os.path.exists("models"):
     os.makedirs("models")
