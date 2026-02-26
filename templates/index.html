@@ -401,11 +401,11 @@
                     </div>
                 `);
 
-                // Style based on score
+               
                 let color = data.score >= 70 ? '#00e676' : (data.score >= 40 ? '#ff9100' : '#ff5252');
                 layer.setStyle({ color: color, fillOpacity: 0.2 });
                 
-                // Click handler for the map layer
+              
                 layer.on('click', () => selectZone(newZone.id));
 
                 updateList();
@@ -413,19 +413,19 @@
             })
             .catch(err => {
                 alert("Analysis Error: " + err.response?.data?.error || err.message);
-                layer.remove(); // Remove failed layer
+                layer.remove(); 
             })
             .finally(() => {
                 document.getElementById('loading-overlay').style.display = 'none';
             });
     });
 
-    // Update the Sidebar List
+   
     function updateList() {
         const container = document.getElementById('zones-container');
         container.innerHTML = '';
         
-        // Reverse to show newest first
+        
         [...zones].reverse().forEach(z => {
             const scoreColor = z.data.score >= 70 ? '#00e676' : (z.data.score >= 40 ? '#ff9100' : '#ff5252');
             
@@ -447,60 +447,54 @@
         });
     }
 
-    // Select and visualize a zone
+    
     function selectZone(id) {
         const zone = zones.find(z => z.id === id);
         if(!zone) return;
 
         const d = zone.data;
 
-        // 1. Update Score Card
+       
         document.getElementById('disp-score').innerText = d.score;
         document.getElementById('disp-decision').innerText = d.decision;
         document.getElementById('disp-id').innerText = zone.id;
         document.getElementById('disp-area').innerText = d.area_km2;
 
-        // Colorize decision badge
+        
         const badge = document.getElementById('disp-decision');
         if(d.score >= 70) { badge.style.color = '#00e676'; badge.style.border = '1px solid #00e676'; }
         else if(d.score >= 40) { badge.style.color = '#ff9100'; badge.style.border = '1px solid #ff9100'; }
         else { badge.style.color = '#ff5252'; badge.style.border = '1px solid #ff5252'; }
 
-        // 2. Prepare Chart Data (Normalization)
-        // Note: Your app.py returns raw densities. We normalize them roughly for the 0-100 chart visual.
+      
         const normRoad = Math.min(d.road_density * 10, 100); 
         const normPop = Math.min(d.pop_density * 5, 100);    
-        const normFlood = d.score; // Inverse logic handled in chart or use (100-flood_risk*100) if raw 0-1
-        // Assuming flood_risk in app.py logic was normalized in score calculation, we use raw derived stats.
-
-        // Update Radar
-        // 'Safety' here is inverse of Flood Risk for visual consistency (Outward = Good)
-        // We approximate these based on your score logic in app.py
+        const normFlood = d.score; 
+        
         currentChartRadar.data.datasets[0].data = [
-            d.green_cover,       // Green
-            normRoad,            // Roads
-            normPop,             // Pop
-            Math.max(0, 100 - (d.distance_water * 10)), // Closer to water = higher score visual
-            d.score              // Overall/Safety proxy
+            d.green_cover,       
+            normRoad,            
+            normPop,             
+            Math.max(0, 100 - (d.distance_water * 10)), 
+            d.score              
         ];
         currentChartRadar.update();
 
-        // Update Bar
-        // We use derived values similar to your python script logic
+        
         currentChartBar.data.datasets[0].data = [
             d.green_cover, 
             normRoad, 
             normPop, 
-            (100 - d.score) // Rough proxy for risk visualization
+            (100 - d.score) 
         ];
         currentChartBar.update();
 
-        // 3. Highlight List Item
+       
         document.querySelectorAll('.zone-item').forEach(el => el.classList.remove('active'));
         const activeItem = document.getElementById(`zone-item-${id}`);
         if(activeItem) activeItem.classList.add('active');
 
-        // 4. Highlight Map Layer
+        
         drawnItems.eachLayer(l => {
             if(l === zone.layer) {
                 l.setStyle({ weight: 4, fillOpacity: 0.5 });
@@ -518,7 +512,7 @@
         document.getElementById('disp-score').innerText = '--';
     }
 
-    // Initialize
+    
     initCharts();
 
 </script>
